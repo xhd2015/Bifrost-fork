@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/agiledragon/gomonkey/v2"
+	"testing"
+	"time"
+
 	inputDriver "github.com/brokercap/Bifrost/input/driver"
 	outputDriver "github.com/brokercap/Bifrost/plugin/driver"
 	"github.com/rwynn/gtm/v2"
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/xhd2015/xgo/runtime/mock"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"reflect"
-	"testing"
-	"time"
 )
 
 /*
@@ -73,10 +73,9 @@ func TestMongoInput_GetUriExample(t *testing.T) {
 
 func TestMongoInput_SetOption(t *testing.T) {
 	c := new(MongoInput)
-	patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "GTID2OpLogPosition", func(c *MongoInput, GTID string) *primitive.Timestamp {
+	mock.Patch(c.GTID2OpLogPosition, func(GTID string) *primitive.Timestamp {
 		return nil
 	})
-	defer patches.Reset()
 	Convey("normal", t, func() {
 		c.SetOption(inputDriver.InputInfo{}, nil)
 	})
@@ -111,10 +110,9 @@ func TestMongoInput_Start(t *testing.T) {
 	Convey("BatchAndReplicate", t, func() {
 		c := new(MongoInput)
 		c.inputInfo.GTID = BatchAndReplicate
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "StartBatchAndReplicate", func(c *MongoInput) error {
+		mock.Patch(c.StartBatchAndReplicate, func() error {
 			return errors.New(BatchAndReplicate)
 		})
-		defer patches.Reset()
 		err := c.Start(make(chan *inputDriver.PluginStatus, 2))
 		So(err.Error(), ShouldEqual, BatchAndReplicate)
 	})
@@ -122,10 +120,9 @@ func TestMongoInput_Start(t *testing.T) {
 	Convey("OnlyBatch", t, func() {
 		c := new(MongoInput)
 		c.inputInfo.GTID = OnlyBatch
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "StartOnlyBatch", func(c *MongoInput) error {
+		mock.Patch(c.StartOnlyBatch, func() error {
 			return errors.New(OnlyBatch)
 		})
-		defer patches.Reset()
 		err := c.Start(make(chan *inputDriver.PluginStatus, 2))
 		So(err.Error(), ShouldEqual, OnlyBatch)
 	})
@@ -133,10 +130,9 @@ func TestMongoInput_Start(t *testing.T) {
 	Convey("OnlyReplicate", t, func() {
 		c := new(MongoInput)
 		c.inputInfo.GTID = ""
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "StartOnlyReplicate", func(c *MongoInput) error {
+		mock.Patch(c.StartOnlyReplicate, func() error {
 			return errors.New("OnlyReplicate")
 		})
-		defer patches.Reset()
 		err := c.Start(make(chan *inputDriver.PluginStatus, 2))
 		So(err.Error(), ShouldEqual, "OnlyReplicate")
 	})
@@ -147,10 +143,9 @@ func TestMongoInput_Start_with_panic(t *testing.T) {
 	Convey("panic", t, func() {
 		c := new(MongoInput)
 		c.PluginStatusChan = make(chan *inputDriver.PluginStatus, 10)
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "StartOnlyReplicate", func(c *MongoInput) error {
+		mock.Patch(c.StartOnlyReplicate, func() error {
 			panic("panic test")
 		})
-		defer patches.Reset()
 		err := c.Start(make(chan *inputDriver.PluginStatus, 2))
 		select {
 		case status := <-c.PluginStatusChan:
@@ -167,45 +162,42 @@ func TestMongoInput_Start_with_panic(t *testing.T) {
 func TestMongoInput_StartBatchAndReplicate(t *testing.T) {
 	Convey("get current position error", t, func() {
 		c := new(MongoInput)
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "GetCurrentPosition", func(c *MongoInput) (p *inputDriver.PluginPosition, err error) {
+		mock.Patch(c.GetCurrentPosition, func() (p *inputDriver.PluginPosition, err error) {
 			return nil, errors.New("error")
 		})
-		defer patches.Reset()
 		err := c.StartBatchAndReplicate()
 		So(err, ShouldNotBeNil)
 	})
 
 	Convey("batch error", t, func() {
 		c := new(MongoInput)
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "GetCurrentPosition", func(c *MongoInput) (p *inputDriver.PluginPosition, err error) {
+		mock.Patch(c.GetCurrentPosition, func() (p *inputDriver.PluginPosition, err error) {
 			p = &inputDriver.PluginPosition{
 				GTID: "{\"T\":1696329531,\"I\":0}",
 			}
 			return
 		})
-		patches.ApplyMethod(reflect.TypeOf(c), "BatchStart", func(c *MongoInput) (err error) {
+		mock.Patch(c.BatchStart, func() (err error) {
 			return errors.New("error")
 		})
-		defer patches.Reset()
 		err := c.StartBatchAndReplicate()
 		So(err, ShouldNotBeNil)
 	})
 
 	Convey("StartOnlyReplicate error", t, func() {
 		c := new(MongoInput)
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "GetCurrentPosition", func(c *MongoInput) (p *inputDriver.PluginPosition, err error) {
+		mock.Patch(c.GetCurrentPosition, func() (p *inputDriver.PluginPosition, err error) {
 			p = &inputDriver.PluginPosition{
 				GTID: "{\"T\":1696329531,\"I\":0}",
 			}
 			return
 		})
-		patches.ApplyMethod(reflect.TypeOf(c), "BatchStart", func(c *MongoInput) (err error) {
+		mock.Patch(c.BatchStart, func() (err error) {
 			return nil
 		})
-		patches.ApplyMethod(reflect.TypeOf(c), "StartOnlyReplicate", func(c *MongoInput) (err error) {
+		mock.Patch(c.StartOnlyReplicate, func() (err error) {
 			return errors.New("error")
 		})
-		defer patches.Reset()
 		err := c.StartBatchAndReplicate()
 		So(err, ShouldNotBeNil)
 		So(c.GetLastPosition(), ShouldNotBeNil)
@@ -216,20 +208,18 @@ func TestMongoInput_StartBatchAndReplicate(t *testing.T) {
 func TestMongoInput_StartOnlyBatch(t *testing.T) {
 	Convey("error", t, func() {
 		c := new(MongoInput)
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "BatchStart", func(c *MongoInput) error {
+		mock.Patch(c.BatchStart, func() error {
 			return errors.New("error")
 		})
-		defer patches.Reset()
 		err := c.StartOnlyBatch()
 		So(err, ShouldNotBeNil)
 	})
 
 	Convey("nil", t, func() {
 		c := new(MongoInput)
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "BatchStart", func(c *MongoInput) error {
+		mock.Patch(c.BatchStart, func() error {
 			return nil
 		})
-		defer patches.Reset()
 		err := c.StartOnlyBatch()
 		So(err, ShouldBeNil)
 	})
@@ -237,10 +227,9 @@ func TestMongoInput_StartOnlyBatch(t *testing.T) {
 
 func TestMongoInput_StartOnlyReplicate(t *testing.T) {
 	c := new(MongoInput)
-	patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "StartOnlyReplicate0", func(c *MongoInput) error {
+	mock.Patch(c.StartOnlyReplicate0, func() error {
 		return nil
 	})
-	defer patches.Reset()
 	Convey("time out", t, func() {
 		ctx, _ := context.WithTimeout(context.Background(), 4*time.Second)
 		go func() {
@@ -276,25 +265,23 @@ func TestMongoInput_StartOnlyReplicate0(t *testing.T) {
 	c := new(MongoInput)
 
 	Convey("CreateMongoClient error", t, func() {
-		patches := gomonkey.ApplyFunc(CreateMongoClient, func(uri string, ctx context.Context) (*mongo.Client, error) {
+		mock.Patch(CreateMongoClient, func(uri string, ctx context.Context) (*mongo.Client, error) {
 			return &mongo.Client{}, fmt.Errorf("mock error")
 		})
-		defer patches.Reset()
 		err := c.StartOnlyReplicate0()
 		So(err, ShouldNotBeNil)
 	})
 
 	Convey("normal", t, func() {
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "ConsumeMongoOpLog", func(c *MongoInput, ctx *gtm.OpCtx) {
+		mock.Patch(c.ConsumeMongoOpLog, func(ctx *gtm.OpCtx) {
 			return
 		})
-		patches.ApplyMethod(reflect.TypeOf(c), "GtmAfter", func(c *MongoInput, client *mongo.Client, options *gtm.Options) (primitive.Timestamp, error) {
+		mock.Patch(c.GtmAfter, func(client *mongo.Client, options *gtm.Options) (primitive.Timestamp, error) {
 			return primitive.Timestamp{}, nil
 		})
-		patches.ApplyFunc(CreateMongoClient, func(uri string, ctx context.Context) (*mongo.Client, error) {
+		mock.Patch(CreateMongoClient, func(uri string, ctx context.Context) (*mongo.Client, error) {
 			return &mongo.Client{}, nil
 		})
-		defer patches.Reset()
 		err := c.StartOnlyReplicate0()
 		So(err, ShouldBeNil)
 	})
@@ -318,15 +305,18 @@ func TestMongoInput_OpFitler(t *testing.T) {
 		op := &gtm.Op{}
 		op.Operation = "c"
 
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(op), "IsDropCollection", func(op *gtm.Op) (string, bool) {
+		mock.Patch(op.IsDropCollection, func() (string, bool) {
 			return "", false
 		})
-		patches.ApplyMethod(reflect.TypeOf(op), "GetDatabase", func(op *gtm.Op) string {
+
+		mock.Patch(op.GetDatabase, func() string {
 			return "database"
 		})
-		patches.ApplyMethod(reflect.TypeOf(op), "IsDropDatabase", func(op *gtm.Op) (string, bool) {
+
+		mock.Patch(op.IsDropDatabase, func() (string, bool) {
 			return "database", true
 		})
+
 		b := c.OpFitler(op)
 		So(b, ShouldEqual, true)
 	})
@@ -336,10 +326,10 @@ func TestMongoInput_OpFitler(t *testing.T) {
 		op := &gtm.Op{}
 		op.Operation = "i"
 
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(op), "GetCollection", func(op *gtm.Op) string {
+		mock.Patch(op.GetCollection, func() string {
 			return "table"
 		})
-		patches.ApplyMethod(reflect.TypeOf(op), "GetDatabase", func(op *gtm.Op) string {
+		mock.Patch(op.GetDatabase, func() string {
 			return "database"
 		})
 		b := c.OpFitler(op)
@@ -355,10 +345,9 @@ func TestMongoInput_ConsumeMongoOpLog(t *testing.T) {
 		c.PluginStatusChan = make(chan *inputDriver.PluginStatus, 10)
 		c.ctx, c.ctxCancleFun = context.WithTimeout(context.Background(), 20*time.Second)
 		opCtx := &gtm.OpCtx{ErrC: make(chan error, 100)}
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "ToInputCallback", func(c *MongoInput, op *gtm.Op) {
+		mock.Patch(c.ToInputCallback, func(op *gtm.Op) {
 			return
 		})
-		defer patches.Reset()
 		opCtx.ErrC <- fmt.Errorf("mock error")
 		close(opCtx.ErrC)
 		c.ConsumeMongoOpLog(opCtx)
@@ -369,10 +358,9 @@ func TestMongoInput_ConsumeMongoOpLog(t *testing.T) {
 		c.PluginStatusChan = make(chan *inputDriver.PluginStatus, 10)
 		c.ctx, c.ctxCancleFun = context.WithTimeout(context.Background(), 20*time.Second)
 		opCtx := &gtm.OpCtx{ErrC: make(chan error, 100)}
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "ToInputCallback", func(c *MongoInput, op *gtm.Op) {
+		mock.Patch(c.ToInputCallback, func(op *gtm.Op) {
 			return
 		})
-		defer patches.Reset()
 		go func() {
 			opCtx.OpC <- &gtm.Op{}
 			c.ctxCancleFun()
@@ -415,10 +403,9 @@ func TestMongoInput_GetLastPosition(t *testing.T) {
 	})
 
 	Convey("lastOp is not nil", t, func() {
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "OpLogPosition2GTID", func(c *MongoInput, p *primitive.Timestamp) string {
+		mock.Patch(c.OpLogPosition2GTID, func(p *primitive.Timestamp) string {
 			return ""
 		})
-		defer patches.Reset()
 		c.lastOp = &gtm.Op{}
 		So(c.GetLastPosition(), ShouldNotBeNil)
 	})
