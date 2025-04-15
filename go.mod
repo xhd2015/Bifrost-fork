@@ -20,6 +20,7 @@ require (
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/xdg/scram v1.0.5
 	go.mongodb.org/mongo-driver v1.17.2
+	github.com/xhd2015/xgo/runtime v1.1.1
 	golang.org/x/sys v0.0.0-20210112080510-489259a85091
 	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22
 )

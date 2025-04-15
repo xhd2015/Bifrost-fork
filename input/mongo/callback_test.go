@@ -2,13 +2,13 @@ package mongo
 
 import (
 	"fmt"
-	"github.com/agiledragon/gomonkey/v2"
-	outputDriver "github.com/brokercap/Bifrost/plugin/driver"
-	"github.com/rwynn/gtm/v2"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"reflect"
 	"testing"
 	"time"
+
+	outputDriver "github.com/brokercap/Bifrost/plugin/driver"
+	"github.com/rwynn/gtm/v2"
+	"github.com/xhd2015/xgo/runtime/mock"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -30,10 +30,9 @@ func TestMongoInput_ToInputCallback(t *testing.T) {
 		op := &gtm.Op{
 			Operation: "c",
 		}
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(op), "IsCommand", func(op *gtm.Op) bool {
+		mock.Patch(op.IsCommand, func() bool {
 			return true
 		})
-		defer patches.Reset()
 		c.ToInputCallback(op)
 		So(callbackData, ShouldBeNil)
 	})
@@ -50,14 +49,13 @@ func TestMongoInput_ToInputCallback(t *testing.T) {
 			Operation: "c",
 			Data:      map[string]interface{}{"dropDatabase": "database"},
 		}
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(op), "IsCommand", func(op *gtm.Op) bool {
+		mock.Patch(op.IsCommand, func() bool {
 			return true
 		})
-		patches.ApplyMethod(reflect.TypeOf(c), "BuildDropDatabaseQueryEvent", func(c *MongoInput, op *gtm.Op) *outputDriver.PluginDataType {
+		mock.Patch(c.BuildDropDatabaseQueryEvent, func(op *gtm.Op) *outputDriver.PluginDataType {
 			return &outputDriver.PluginDataType{SchemaName: "database"}
 		})
 
-		defer patches.Reset()
 		c.ToInputCallback(op)
 		So(callbackData, ShouldNotBeNil)
 		So(callbackData.SchemaName, ShouldEqual, "database")
@@ -75,14 +73,13 @@ func TestMongoInput_ToInputCallback(t *testing.T) {
 			Operation: "c",
 			Data:      map[string]interface{}{"drop": "testTableName"},
 		}
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(op), "IsCommand", func(op *gtm.Op) bool {
+		mock.Patch(op.IsCommand, func() bool {
 			return true
 		})
-		patches.ApplyMethod(reflect.TypeOf(c), "BuildDropTableQueryEvent", func(c *MongoInput, op *gtm.Op) *outputDriver.PluginDataType {
+		mock.Patch(c.BuildDropTableQueryEvent, func(op *gtm.Op) *outputDriver.PluginDataType {
 			return &outputDriver.PluginDataType{TableName: "testTableName", EventType: "sql"}
 		})
 
-		defer patches.Reset()
 		c.ToInputCallback(op)
 		So(callbackData, ShouldNotBeNil)
 		So(callbackData.TableName, ShouldEqual, "testTableName")
@@ -99,11 +96,10 @@ func TestMongoInput_ToInputCallback(t *testing.T) {
 		op := &gtm.Op{
 			Operation: "i",
 		}
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "BuildRowEvent", func(c *MongoInput, op *gtm.Op) *outputDriver.PluginDataType {
+		mock.Patch(c.BuildRowEvent, func(op *gtm.Op) *outputDriver.PluginDataType {
 			return nil
 		})
 
-		defer patches.Reset()
 		c.ToInputCallback(op)
 		So(callbackData, ShouldBeNil)
 	})
@@ -119,11 +115,10 @@ func TestMongoInput_ToInputCallback(t *testing.T) {
 		op := &gtm.Op{
 			Operation: "i",
 		}
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "BuildRowEvent", func(c *MongoInput, op *gtm.Op) *outputDriver.PluginDataType {
+		mock.Patch(c.BuildRowEvent, func(op *gtm.Op) *outputDriver.PluginDataType {
 			return &outputDriver.PluginDataType{TableName: "testTableName", EventType: "insert"}
 		})
 
-		defer patches.Reset()
 		c.ToInputCallback(op)
 		So(callbackData, ShouldNotBeNil)
 		So(callbackData.TableName, ShouldEqual, "testTableName")
@@ -140,14 +135,13 @@ func TestMongoInput_ToInputCallback(t *testing.T) {
 		op := &gtm.Op{
 			Operation: "i",
 		}
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "BuildRowEvent", func(c *MongoInput, op *gtm.Op) *outputDriver.PluginDataType {
+		mock.Patch(c.BuildRowEvent, func(op *gtm.Op) *outputDriver.PluginDataType {
 			return &outputDriver.PluginDataType{TableName: "testTableName", EventType: "insert"}
 		})
-		patches.ApplyMethod(reflect.TypeOf(c), "BuildRowEvent", func(c *MongoInput, op *gtm.Op) *outputDriver.PluginDataType {
+		mock.Patch(c.BuildCommitEvent, func(data *outputDriver.PluginDataType) *outputDriver.PluginDataType {
 			return &outputDriver.PluginDataType{TableName: "testTableName", EventType: "commit"}
 		})
 
-		defer patches.Reset()
 		c.ToInputCallback(op)
 		So(callbackData, ShouldNotBeNil)
 		So(callbackData.TableName, ShouldEqual, "testTableName")
@@ -188,13 +182,12 @@ func TestMongoInput_BuildRowEvent(t *testing.T) {
 			Data:      make(map[string]interface{}),
 		}
 
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "OpLogPosition2GTID", func(c *MongoInput, p *primitive.Timestamp) string {
+		mock.Patch(c.OpLogPosition2GTID, func(p *primitive.Timestamp) string {
 			return ""
 		})
-		patches.ApplyMethod(reflect.TypeOf(c), "TransferDataAndColumnMapping", func(c *MongoInput, row map[string]interface{}) (columnMapping map[string]string) {
+		mock.Patch(c.TransferDataAndColumnMapping, func(row map[string]interface{}) (columnMapping map[string]string) {
 			return
 		})
-		defer patches.Reset()
 		data := c.BuildRowEvent(op)
 		So(data, ShouldNotBeNil)
 		So(data.SchemaName, ShouldEqual, "database")
@@ -211,13 +204,12 @@ func TestMongoInput_BuildRowEvent(t *testing.T) {
 			Data:      map[string]interface{}{"name": "test"},
 		}
 
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "OpLogPosition2GTID", func(c *MongoInput, p *primitive.Timestamp) string {
+		mock.Patch(c.OpLogPosition2GTID, func(p *primitive.Timestamp) string {
 			return ""
 		})
-		patches.ApplyMethod(reflect.TypeOf(c), "TransferDataAndColumnMapping", func(c *MongoInput, row map[string]interface{}) (columnMapping map[string]string) {
+		mock.Patch(c.TransferDataAndColumnMapping, func(row map[string]interface{}) (columnMapping map[string]string) {
 			return
 		})
-		defer patches.Reset()
 		data := c.BuildRowEvent(op)
 		So(data, ShouldNotBeNil)
 		So(data.SchemaName, ShouldEqual, "database")
@@ -235,13 +227,12 @@ func TestMongoInput_BuildRowEvent(t *testing.T) {
 			Data:      nil,
 		}
 
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "OpLogPosition2GTID", func(c *MongoInput, p *primitive.Timestamp) string {
+		mock.Patch(c.OpLogPosition2GTID, func(p *primitive.Timestamp) string {
 			return ""
 		})
-		patches.ApplyMethod(reflect.TypeOf(c), "TransferDataAndColumnMapping", func(c *MongoInput, row map[string]interface{}) (columnMapping map[string]string) {
+		mock.Patch(c.TransferDataAndColumnMapping, func(row map[string]interface{}) (columnMapping map[string]string) {
 			return
 		})
-		defer patches.Reset()
 		data := c.BuildRowEvent(op)
 		So(data, ShouldNotBeNil)
 		So(data.SchemaName, ShouldEqual, "database")
@@ -259,13 +250,12 @@ func TestMongoInput_BuildRowEvent(t *testing.T) {
 			Data:      make(map[string]interface{}),
 		}
 
-		patches := gomonkey.ApplyMethod(reflect.TypeOf(c), "OpLogPosition2GTID", func(c *MongoInput, p *primitive.Timestamp) string {
+		mock.Patch(c.OpLogPosition2GTID, func(p *primitive.Timestamp) string {
 			return ""
 		})
-		patches.ApplyMethod(reflect.TypeOf(c), "TransferDataAndColumnMapping", func(c *MongoInput, row map[string]interface{}) (columnMapping map[string]string) {
+		mock.Patch(c.TransferDataAndColumnMapping, func(row map[string]interface{}) (columnMapping map[string]string) {
 			return
 		})
-		defer patches.Reset()
 		data := c.BuildRowEvent(op)
 		So(data, ShouldNotBeNil)
 		So(data.SchemaName, ShouldEqual, "database")
